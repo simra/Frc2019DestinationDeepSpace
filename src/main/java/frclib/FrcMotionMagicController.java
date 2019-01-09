@@ -341,8 +341,6 @@ public class FrcMotionMagicController
 
     private boolean isDone()
     {
-        // TODO: This needs to be improved. What if it stalls just outside of tolerance range?
-        // Maybe add a timeout. Or if it spends x seconds under a certain velocity. As it is now it's not very robust.
         return running && Math.abs(getRawError()) <= errorTolerance;
     }
 
