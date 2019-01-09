@@ -308,6 +308,16 @@ public class FrcCANTalon extends TrcMotor
         feedbackDeviceIsPot = devType == FeedbackDevice.Analog;
     }   //setFeedbackDevice
 
+    /**
+     * This method gets the feedback device type.
+     *
+     * @return The type of device used for motor feedback.
+     */
+    public FeedbackDevice getFeedbackDevice()
+    {
+        return feedbackDeviceType;
+    } // getFeedbackDevice
+
     //
     // Implements TrcMotor abstract methods.
     //

@@ -27,6 +27,7 @@ import common.CmdTimedDrive;
 import edu.wpi.first.wpilibj.livewindow.LiveWindow;
 import frclib.FrcChoiceMenu;
 import frclib.FrcJoystick;
+import hallib.HalDashboard;
 import team492.PixyVision.TargetInfo;
 import trclib.TrcEvent;
 import trclib.TrcRobot.RunMode;
@@ -39,24 +40,12 @@ public class FrcTest extends FrcTeleOp
 
     public enum Test
     {
-        SENSORS_TEST,
-        SUBSYSTEMS_TEST,
-        DRIVE_MOTORS_TEST,
-        X_TIMED_DRIVE,
-        Y_TIMED_DRIVE,
-        X_DISTANCE_DRIVE,
-        Y_DISTANCE_DRIVE,
-        TURN_DEGREES,
-        TUNE_X_PID,
-        TUNE_Y_PID,
-        TUNE_TURN_PID,
-        LIVE_WINDOW
+        SENSORS_TEST, SUBSYSTEMS_TEST, MOTION_MAGIC_TEST, DRIVE_MOTORS_TEST, X_TIMED_DRIVE, Y_TIMED_DRIVE, X_DISTANCE_DRIVE, Y_DISTANCE_DRIVE, TURN_DEGREES, TUNE_X_PID, TUNE_Y_PID, TUNE_TURN_PID, LIVE_WINDOW
     } // enum Test
 
     private enum State
     {
-        START,
-        DONE
+        START, DONE
     } // State
 
     private TrcEvent event;
@@ -71,6 +60,7 @@ public class FrcTest extends FrcTeleOp
 
     private CmdTimedDrive timedDriveCommand = null;
     private CmdPidDrive pidDriveCommand = null;
+    private MotionMagicTest motionMagicTest;
 
     private int motorIndex = 0;
 
@@ -80,6 +70,8 @@ public class FrcTest extends FrcTeleOp
         // Call TeleOp constructor.
         //
         super(robot);
+
+        motionMagicTest = new MotionMagicTest(robot);
 
         event = new TrcEvent(moduleName);
         timer = new TrcTimer(moduleName);
@@ -91,6 +83,7 @@ public class FrcTest extends FrcTeleOp
         testMenu = new FrcChoiceMenu<>("Test/Tests");
         testMenu.addChoice("Sensors Test", FrcTest.Test.SENSORS_TEST, true, false);
         testMenu.addChoice("Subsystems Test", FrcTest.Test.SUBSYSTEMS_TEST);
+        testMenu.addChoice("Motion Magic", Test.MOTION_MAGIC_TEST);
         testMenu.addChoice("Drive Motors Test", FrcTest.Test.DRIVE_MOTORS_TEST);
         testMenu.addChoice("X Timed Drive", FrcTest.Test.X_TIMED_DRIVE);
         testMenu.addChoice("Y Timed Drive", FrcTest.Test.Y_TIMED_DRIVE);
@@ -125,6 +118,10 @@ public class FrcTest extends FrcTeleOp
         boolean liveWindowEnabled = false;
         switch (test)
         {
+            case MOTION_MAGIC_TEST:
+                motionMagicTest.start(HalDashboard.getNumber("Test/DriveDistance", 0.0));
+                break;
+
             case SENSORS_TEST:
                 //
                 // Make sure no joystick controls on sensors test.
@@ -152,33 +149,33 @@ public class FrcTest extends FrcTeleOp
                 break;
 
             case X_DISTANCE_DRIVE:
-                pidDriveCommand = new CmdPidDrive(
-                    robot, robot.pidDrive, 0.0, robot.driveDistance, 0.0, 0.0, robot.drivePowerLimit, false);
+                pidDriveCommand = new CmdPidDrive(robot, robot.pidDrive, 0.0, robot.driveDistance, 0.0, 0.0,
+                    robot.drivePowerLimit, false);
                 break;
 
             case Y_DISTANCE_DRIVE:
-                pidDriveCommand = new CmdPidDrive(
-                    robot, robot.pidDrive, 0.0, 0.0, robot.driveDistance, 0.0, robot.drivePowerLimit, false);
+                pidDriveCommand = new CmdPidDrive(robot, robot.pidDrive, 0.0, 0.0, robot.driveDistance, 0.0,
+                    robot.drivePowerLimit, false);
                 break;
 
             case TURN_DEGREES:
-                pidDriveCommand = new CmdPidDrive(
-                    robot, robot.pidDrive, 0.0, 0.0, 0.0, robot.turnDegrees, robot.drivePowerLimit, false);
+                pidDriveCommand = new CmdPidDrive(robot, robot.pidDrive, 0.0, 0.0, 0.0, robot.turnDegrees,
+                    robot.drivePowerLimit, false);
                 break;
 
             case TUNE_X_PID:
-                pidDriveCommand = new CmdPidDrive(
-                    robot, robot.pidDrive, 0.0, robot.driveDistance, 0.0, 0.0, robot.drivePowerLimit, true);
+                pidDriveCommand = new CmdPidDrive(robot, robot.pidDrive, 0.0, robot.driveDistance, 0.0, 0.0,
+                    robot.drivePowerLimit, true);
                 break;
 
             case TUNE_Y_PID:
-                pidDriveCommand = new CmdPidDrive(
-                    robot, robot.pidDrive, 0.0, 0.0, robot.driveDistance, 0.0, robot.drivePowerLimit, true);
+                pidDriveCommand = new CmdPidDrive(robot, robot.pidDrive, 0.0, 0.0, robot.driveDistance, 0.0,
+                    robot.drivePowerLimit, true);
                 break;
 
             case TUNE_TURN_PID:
-                pidDriveCommand = new CmdPidDrive(
-                    robot, robot.pidDrive, 0.0, 0.0, 0.0, robot.turnDegrees, robot.drivePowerLimit, true);
+                pidDriveCommand = new CmdPidDrive(robot, robot.pidDrive, 0.0, 0.0, 0.0, robot.turnDegrees,
+                    robot.drivePowerLimit, true);
                 break;
 
             case LIVE_WINDOW:
@@ -249,8 +246,7 @@ public class FrcTest extends FrcTeleOp
             case TUNE_Y_PID:
             case TUNE_TURN_PID:
                 robot.dashboard.displayPrintf(2, "xPos=%.1f,yPos=%.1f,heading=%.1f, lf=%.2f,rf=%.2f,lr=%.2f,rr=%.2f",
-                    robot.driveBase.getXPosition(), robot.driveBase.getYPosition(),
-                    robot.driveBase.getHeading(),
+                    robot.driveBase.getXPosition(), robot.driveBase.getYPosition(), robot.driveBase.getHeading(),
                     robot.leftFrontWheel.getPosition(), robot.rightFrontWheel.getPosition(),
                     robot.leftRearWheel.getPosition(), robot.rightRearWheel.getPosition());
                 robot.encoderXPidCtrl.displayPidInfo(3);
@@ -270,6 +266,20 @@ public class FrcTest extends FrcTeleOp
             robot.gyroTurnPidCtrl.printPidInfo(robot.globalTracer, elapsedTime, robot.battery);
         }
     } // runContinuous
+
+    @Override
+    public void stopMode(RunMode prevMode, RunMode nextMode)
+    {
+        switch (test)
+        {
+            case MOTION_MAGIC_TEST:
+                motionMagicTest.stop();
+                break;
+
+            default:
+                break;
+        }
+    }
 
     @Override
     public void operatorStickButtonEvent(int button, boolean pressed)
@@ -320,8 +330,6 @@ public class FrcTest extends FrcTeleOp
             super.operatorStickButtonEvent(button, pressed);
         }
     }   //operatorStickButtonEvent
-    
-    
 
     /**
      * This method reads all sensors and prints out their values. This is a very
@@ -335,14 +343,15 @@ public class FrcTest extends FrcTeleOp
         double rfPos = robot.rightFrontWheel.getPosition();
         double lrPos = robot.leftRearWheel.getPosition();
         double rrPos = robot.rightRearWheel.getPosition();
-        double driveBaseAverage = (lfPos + rfPos + lrPos + rrPos)/4.0;
-        robot.dashboard.displayPrintf(1, "Sensors Test (Batt=%.1f/%.1f):",
-            robot.battery.getVoltage(), robot.battery.getLowestVoltage());
-        robot.dashboard.displayPrintf(2, "DriveBase: lf=%.0f,rf=%.0f,lr=%.0f,rr=%.0f,avg=%.0f",
-            lfPos, rfPos, lrPos, rrPos, driveBaseAverage);
-        robot.dashboard.displayPrintf(3, "DriveBase: X=%.1f,Y=%.1f,Heading=%.1f,GyroRate=%.3f",
-            robot.driveBase.getXPosition(), robot.driveBase.getYPosition(), robot.driveBase.getHeading(),
-            robot.gyro.getZRotationRate().value);
+        double driveBaseAverage = (lfPos + rfPos + lrPos + rrPos) / 4.0;
+        robot.dashboard.displayPrintf(1, "Sensors Test (Batt=%.1f/%.1f):", robot.battery.getVoltage(),
+            robot.battery.getLowestVoltage());
+        robot.dashboard
+            .displayPrintf(2, "DriveBase: lf=%.0f,rf=%.0f,lr=%.0f,rr=%.0f,avg=%.0f", lfPos, rfPos, lrPos, rrPos,
+                driveBaseAverage);
+        robot.dashboard
+            .displayPrintf(3, "DriveBase: X=%.1f,Y=%.1f,Heading=%.1f,GyroRate=%.3f", robot.driveBase.getXPosition(),
+                robot.driveBase.getYPosition(), robot.driveBase.getHeading(), robot.gyro.getZRotationRate().value);
         robot.dashboard.displayPrintf(4, "Sensors: pressure=%.1f", robot.getPressure());
         TargetInfo targetInfo = robot.pixy.getTargetInfo();
         if (targetInfo == null)
@@ -351,16 +360,18 @@ public class FrcTest extends FrcTeleOp
         }
         else
         {
-            robot.dashboard.displayPrintf(6, "Pixy: x=%.1f,y=%.1f,angle=%.1f",
-                targetInfo.xDistance, targetInfo.yDistance, targetInfo.angle);
+            robot.dashboard
+                .displayPrintf(6, "Pixy: x=%.1f,y=%.1f,angle=%.1f", targetInfo.xDistance, targetInfo.yDistance,
+                    targetInfo.angle);
         }
         double lfSpeed = robot.leftFrontWheel.getVelocity();
         double rfSpeed = robot.rightFrontWheel.getVelocity();
         double lrSpeed = robot.leftRearWheel.getVelocity();
         double rrSpeed = robot.rightRearWheel.getVelocity();
         double avgSpeed = (lfSpeed + rfSpeed + lrSpeed + rrSpeed) / 4.0;
-        robot.dashboard.displayPrintf(8,"DriveSpeed: lf=%.0f,rf=%.0f,lr=%.0f,rr=%.0f,avg=%.0f",
-            lfSpeed, rfSpeed, lrSpeed, rrSpeed, avgSpeed);
+        robot.dashboard
+            .displayPrintf(8, "DriveSpeed: lf=%.0f,rf=%.0f,lr=%.0f,rr=%.0f,avg=%.0f", lfSpeed, rfSpeed, lrSpeed,
+                rrSpeed, avgSpeed);
     } // doSensorsTest
 
     /**
