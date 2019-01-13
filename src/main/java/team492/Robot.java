@@ -126,6 +126,7 @@ public class Robot extends FrcRobotBase
     public FrcEmic2TextToSpeech tts = null;
     private double nextTimeToSpeakInSeconds = 0.0;  //0 means disabled, no need to speak;
     public FrcI2cLEDPanel messageBoard = null;
+    public Pickup pickup;
     //
     // DriveBase subsystem.
     //
@@ -280,6 +281,7 @@ public class Robot extends FrcRobotBase
         //
         // Create other hardware subsystems.
         //
+        pickup = new Pickup(this);
 
         //
         // AutoAssist commands.

@@ -120,6 +120,8 @@ public class FrcTeleOp implements TrcRobot.RobotMode
         robot.updateDashboard(RunMode.TELEOP_MODE);
         robot.announceSafety();
 
+        robot.pickup.setPickupPower(robot.operatorStick.getThrottleWithDeadband(true));
+
         if (robot.pixy != null && robot.pixy.isEnabled())
         {
             // Force update of LEDs
