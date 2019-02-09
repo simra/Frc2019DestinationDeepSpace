@@ -531,7 +531,7 @@ public class TrcPidDrive
     }   //isActive
 
     /**
-     * This method cancels an active PID drive operation.
+     * This method cancels an active PID drive operation and stops all motors.
      */
     public synchronized void cancel()
     {

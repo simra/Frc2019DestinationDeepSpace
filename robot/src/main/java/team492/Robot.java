@@ -22,7 +22,6 @@
 
 package team492;
 
-import com.ctre.phoenix.motorcontrol.FeedbackDevice;
 import edu.wpi.first.wpilibj.AnalogInput;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
@@ -33,7 +32,7 @@ import edu.wpi.first.wpilibj.Sendable;
 import edu.wpi.first.wpilibj.SerialPort;
 import edu.wpi.first.wpilibj.smartdashboard.SendableBuilder;
 import frclib.FrcAHRSGyro;
-import frclib.FrcCANTalon;
+import frclib.FrcCANSparkMax;
 import frclib.FrcEmic2TextToSpeech;
 import frclib.FrcI2cLEDPanel;
 import frclib.FrcJoystick;
@@ -47,6 +46,7 @@ import trclib.TrcMecanumDriveBase;
 import trclib.TrcPidController;
 import trclib.TrcPidController.PidCoefficients;
 import trclib.TrcPidDrive;
+import trclib.TrcPixyCam2.Vector;
 import trclib.TrcRobot.RunMode;
 import trclib.TrcRobotBattery;
 import trclib.TrcUtil;
@@ -69,13 +69,16 @@ public class Robot extends FrcRobotBase
     public static final boolean USE_TEXT_TO_SPEECH = false;
     public static final boolean USE_MESSAGE_BOARD = false;
     public static final boolean USE_GYRO_ASSIST = false;
-    public static final boolean USE_PIXY_I2C = false;
+    public static final boolean USE_RASPI_VISION = true;
+    public static final boolean USE_PIXY_I2C = true;
+    public static final boolean USE_PIXY_V2 = true;
+    public static final boolean USE_PIXY_LINE_TARGET = true;
 
     private static final boolean DEBUG_POWER_CONSUMPTION = false;
     private static final boolean DEBUG_DRIVE_BASE = false;
     private static final boolean DEBUG_PID_DRIVE = false;
     private static final boolean DEBUG_SUBSYSTEMS = false;
-    private static final boolean DEBUG_PIXY = false;
+    private static final boolean DEBUG_PIXY = true;
 
     private static final double DASHBOARD_UPDATE_INTERVAL = 0.1;
     private static final double SPEAK_PERIOD_SECONDS = 20.0; // Speaks once every this # of second.
@@ -109,6 +112,7 @@ public class Robot extends FrcRobotBase
     public FrcJoystick leftDriveStick = null;
     public FrcJoystick rightDriveStick = null;
     public FrcJoystick operatorStick = null;
+    public FrcJoystick buttonPanel = null;
     //
     // Sensors.
     //
@@ -116,10 +120,21 @@ public class Robot extends FrcRobotBase
     public TrcRobotBattery battery = null;
     public FrcAHRSGyro gyro = null;
     public AnalogInput pressureSensor = null;
+
+    //
+    // Primary robot subystems
+    //
+    public Pickup pickup;
+    public Elevator elevator;
+
+    public CmdAutoDeploy autoDeploy;
+    private CmdRobotTargetAlign autoTargetAlign;
+
     //
     // VisionTargetPipeline subsystem.
     //
     public PixyVision pixy = null;
+    public RaspiVision vision = null;
     //
     // Miscellaneous subsystem.
     //
@@ -129,10 +144,10 @@ public class Robot extends FrcRobotBase
     //
     // DriveBase subsystem.
     //
-    public FrcCANTalon leftFrontWheel;
-    public FrcCANTalon leftRearWheel;
-    public FrcCANTalon rightFrontWheel;
-    public FrcCANTalon rightRearWheel;
+    public FrcCANSparkMax leftFrontWheel;
+    public FrcCANSparkMax leftRearWheel;
+    public FrcCANSparkMax rightFrontWheel;
+    public FrcCANSparkMax rightRearWheel;
     public TrcMecanumDriveBase driveBase;
 
     public TrcPidController encoderXPidCtrl;
@@ -148,6 +163,8 @@ public class Robot extends FrcRobotBase
     public double turnDegrees;
     public double drivePowerLimit;
     public TrcPidController.PidCoefficients tunePidCoeff;
+
+    private FrcAuto autoMode;
 
     /**
      * Constructor.
@@ -169,6 +186,7 @@ public class Robot extends FrcRobotBase
         leftDriveStick = new FrcJoystick("leftDriveStick", RobotInfo.JSPORT_LEFT_DRIVESTICK);
         rightDriveStick = new FrcJoystick("rightDriveStick", RobotInfo.JSPORT_RIGHT_DRIVESTICK);
         operatorStick = new FrcJoystick("operatorStick", RobotInfo.JSPORT_OPERATORSTICK);
+        buttonPanel = new FrcJoystick("buttonPanel", RobotInfo.BUTTON_PANEL);
         //
         // Sensors.
         //
@@ -186,8 +204,14 @@ public class Robot extends FrcRobotBase
         if(USE_PIXY_I2C)
         {
             pixy = new PixyVision(
-                "PixyCam", this, RobotInfo.PIXY_TARGET_SIGNATURE, RobotInfo.PIXY_BRIGHTNESS,
+                "PixyCam", this, USE_PIXY_V2, RobotInfo.PIXY_TARGET_SIGNATURE, RobotInfo.PIXY_BRIGHTNESS,
                 RobotInfo.PIXY_ORIENTATION, I2C.Port.kMXP, RobotInfo.PIXYCAM_I2C_ADDRESS);
+        }
+
+        if (USE_RASPI_VISION)
+        {
+            vision = new RaspiVision(this);
+            vision.setUseVisionYawEnabled(false);
         }
 
         //
@@ -209,10 +233,10 @@ public class Robot extends FrcRobotBase
         //
         // DriveBase subsystem.
         //
-        leftFrontWheel = new FrcCANTalon("LeftFrontWheel", RobotInfo.CANID_LEFTFRONTWHEEL);
-        leftRearWheel = new FrcCANTalon("LeftRearWheel", RobotInfo.CANID_LEFTREARWHEEL);
-        rightFrontWheel = new FrcCANTalon("RightFrontWheel", RobotInfo.CANID_RIGHTFRONTWHEEL);
-        rightRearWheel = new FrcCANTalon("RightRearWheel", RobotInfo.CANID_RIGHTREARWHEEL);
+        leftFrontWheel = new FrcCANSparkMax("LeftFrontWheel", RobotInfo.CANID_LEFTFRONTWHEEL, true);
+        leftRearWheel = new FrcCANSparkMax("LeftRearWheel", RobotInfo.CANID_LEFTREARWHEEL, true);
+        rightFrontWheel = new FrcCANSparkMax("RightFrontWheel", RobotInfo.CANID_RIGHTFRONTWHEEL, true);
+        rightRearWheel = new FrcCANSparkMax("RightRearWheel", RobotInfo.CANID_RIGHTREARWHEEL, true);
         pdp.registerEnergyUsed(RobotInfo.PDP_CHANNEL_LEFT_FRONT_WHEEL, "LeftFrontWheel");
         pdp.registerEnergyUsed(RobotInfo.PDP_CHANNEL_LEFT_REAR_WHEEL, "LeftRearWheel");
         pdp.registerEnergyUsed(RobotInfo.PDP_CHANNEL_RIGHT_FRONT_WHEEL, "RightFrontWheel");
@@ -226,20 +250,10 @@ public class Robot extends FrcRobotBase
         rightFrontWheel.setInverted(true);
         rightRearWheel.setInverted(true);
 
-        leftFrontWheel.motor.overrideLimitSwitchesEnable(false);
-        leftRearWheel.motor.overrideLimitSwitchesEnable(false);
-        rightFrontWheel.motor.overrideLimitSwitchesEnable(false);
-        rightRearWheel.motor.overrideLimitSwitchesEnable(false);
-
         leftFrontWheel.setPositionSensorInverted(false);
         leftRearWheel.setPositionSensorInverted(false);
         rightFrontWheel.setPositionSensorInverted(false);
         rightRearWheel.setPositionSensorInverted(false);
-
-        leftFrontWheel.setFeedbackDevice(FeedbackDevice.QuadEncoder);
-        leftRearWheel.setFeedbackDevice(FeedbackDevice.QuadEncoder);
-        rightFrontWheel.setFeedbackDevice(FeedbackDevice.QuadEncoder);
-        rightRearWheel.setFeedbackDevice(FeedbackDevice.QuadEncoder);
 
         //
         // Initialize DriveBase subsystem.
@@ -280,17 +294,23 @@ public class Robot extends FrcRobotBase
         //
         // Create other hardware subsystems.
         //
+        elevator = new Elevator();
+        pickup = new Pickup(this);
 
         //
         // AutoAssist commands.
         //
+        autoDeploy = new CmdAutoDeploy(this);
+        autoTargetAlign = new CmdRobotTargetAlign(this);
+
 
         //
         // Create Robot Modes.
         //
+        autoMode = new FrcAuto(this);
         setupRobotModes(
             new FrcTeleOp(this),
-            new FrcAuto(this),
+            autoMode,
             new FrcTest(this),
             new FrcDisabled(this));
     }   //robotInit
@@ -482,10 +502,6 @@ public class Robot extends FrcRobotBase
                 HalDashboard.putNumber("DriveBase/xPos", xPos);
                 HalDashboard.putNumber("DriveBase/yPos", yPos);
                 HalDashboard.putData("DriveBase/heading", gyro.getGyroSendable());
-                HalDashboard.putData("DriveBase/lf_wheel", leftFrontWheel.getEncoderSendable());
-                HalDashboard.putData("DriveBase/rf_wheel", rightFrontWheel.getEncoderSendable());
-                HalDashboard.putData("DriveBase/lr_wheel", leftRearWheel.getEncoderSendable());
-                HalDashboard.putData("DriveBase/rr_wheel", rightRearWheel.getEncoderSendable());
 
                 HalDashboard.putData("DriveBase/Mecanum_Drive", createMecanumDriveInfo());
 
@@ -515,17 +531,32 @@ public class Robot extends FrcRobotBase
                 {
                     if (pixy != null && pixy.isEnabled())
                     {
-                        PixyVision.TargetInfo targetInfo = pixy.getTargetInfo();
-                        if (targetInfo == null)
+                        if (USE_PIXY_LINE_TARGET)
                         {
-                            dashboard.displayPrintf(11, "Pixy: Target not found!");
+                            Vector[] vectors = pixy.getLineVectors();
+                            if (vectors == null)
+                            {
+                                dashboard.displayPrintf(11, "Pixy: line not found");
+                            }
+                            else
+                            {
+                                dashboard.displayPrintf(11, "Pixy: %s", vectors[0]);
+                            }
                         }
                         else
                         {
-                            dashboard.displayPrintf(11, "Pixy: xDistance=%.1f, yDistance=%.1f, angle=%.1f",
-                                targetInfo.xDistance, targetInfo.yDistance, targetInfo.angle);
-                            dashboard.displayPrintf(12, "x=%d, y=%d, width=%d, height=%d",
-                                targetInfo.rect.x, targetInfo.rect.y, targetInfo.rect.width, targetInfo.rect.height);
+                            PixyVision.TargetInfo targetInfo = pixy.getTargetInfo();
+                            if (targetInfo == null)
+                            {
+                                dashboard.displayPrintf(11, "Pixy: Target not found!");
+                            }
+                            else
+                            {
+                                dashboard.displayPrintf(11, "Pixy: xDistance=%.1f, yDistance=%.1f, angle=%.1f",
+                                    targetInfo.xDistance, targetInfo.yDistance, targetInfo.angle);
+                                dashboard.displayPrintf(12, "x=%d, y=%d, width=%d, height=%d",
+                                    targetInfo.rect.x, targetInfo.rect.y, targetInfo.rect.width, targetInfo.rect.height);
+                            }
                         }
                     }
                 }
@@ -556,6 +587,16 @@ public class Robot extends FrcRobotBase
                 builder.addDoubleProperty("Rear Right Motor Speed", rightRearWheel::getPower, null);
             }
         };
+    }
+
+    /**
+     * Checks if any auto processes are running, be it auto mode or auto assist, etc.
+     *
+     * @return True if any auto processes are active, false otherwise.
+     */
+    public boolean isAutoActive()
+    {
+        return autoMode.isAutoActive() || autoDeploy.isActive() || autoTargetAlign.isActive();
     }
 
     public void announceSafety()
@@ -666,5 +707,4 @@ public class Robot extends FrcRobotBase
 
         return targetInfo != null? targetInfo.yDistance: null;
     }
-
 }   //class Robot

@@ -142,7 +142,7 @@ $RECYCLE.BIN/
 
 ### Gradle ###
 .gradle
-/build/
+build/
 
 # Ignore Gradle GUI config
 gradle-app.setting
@@ -167,3 +167,4 @@ bin/
 
 # Exceptions for libraries
 !vision/libs/*.jar
+!robot/libs/*.jar

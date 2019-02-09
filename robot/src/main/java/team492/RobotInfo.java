@@ -22,14 +22,10 @@
 
 package team492;
 
-import frclib.FrcPixyCam;
+import frclib.FrcPixyCam1;
 
 public class RobotInfo
 {
-    //
-    // Compiler switches
-    //
-
     //
     // Field dimensions in inches.
     //
@@ -48,6 +44,7 @@ public class RobotInfo
     public static final int JSPORT_LEFT_DRIVESTICK              = 0;
     public static final int JSPORT_RIGHT_DRIVESTICK             = 1;
     public static final int JSPORT_OPERATORSTICK                = 2;
+    public static final int BUTTON_PANEL                        = 3;
 
     //
     // CAN IDs.
@@ -56,7 +53,14 @@ public class RobotInfo
     public static final int CANID_RIGHTFRONTWHEEL               = 4;    // 40A: Yellow
     public static final int CANID_LEFTREARWHEEL                 = 5;    // 40A: Green
     public static final int CANID_RIGHTREARWHEEL                = 6;    // 40A: Blue
+    public static final int CANID_LEFT_DRIVE_MASTER             = 7;    // 40A: Purple
+    public static final int CANID_RIGHT_DRIVE_MASTER            = 8;    // 40A: Gray
+    public static final int CANID_ELEVATOR                      = 9;    // 40A: White
+    public static final int CANID_PICKUP_PITCH                  = 10;   // 40A: Orange
+    public static final int CANID_RESERVED                      = 11;   // 30A: Yellow
+    public static final int CANID_PICKUP                        = 12;   // 30A: Green
 
+    public static final int CANID_PIGEON                        = 15;
     public static final int CANID_PDP                           = 16;
     public static final int CANID_PCM1                          = 17;
     public static final int CANID_PCM2                          = 18;
@@ -64,10 +68,19 @@ public class RobotInfo
     //
     // PDP Channels.
     //
-    public static final int PDP_CHANNEL_LEFT_FRONT_WHEEL        = 0;
-    public static final int PDP_CHANNEL_LEFT_REAR_WHEEL         = 1;
-    public static final int PDP_CHANNEL_RIGHT_REAR_WHEEL        = 14;
-    public static final int PDP_CHANNEL_RIGHT_FRONT_WHEEL       = 15;
+    public static final int PDP_CHANNEL_RIGHT_REAR_WHEEL        = 0;
+    public static final int PDP_CHANNEL_RIGHT_DRIVE_MASTER      = 1;
+    public static final int PDP_CHANNEL_PICKUP_PITCH            = 2;
+    public static final int PDP_CHANNEL_RIGHT_FRONT_WHEEL       = 3;
+    public static final int PDP_CHANNEL_PICKUP                  = 4;
+    public static final int PDP_CHANNEL_PIGEON                  = 8;
+    public static final int PDP_CHANNEL_BLINKIN                 = 9;
+    public static final int PDP_CHANNEL_RING_LIGHT              = 10;
+    public static final int PDP_CHANNEL_RESERVED                = 11;
+    public static final int PDP_CHANNEL_LEFT_FRONT_WHEEL        = 12;
+    public static final int PDP_CHANNEL_ELEVATOR                = 13;
+    public static final int PDP_CHANNEL_LEFT_DRIVE_MASTER       = 14;
+    public static final int PDP_CHANNEL_LEFT_REAR_WHEEL         = 15;
 
     //
     // Analog Input ports.
@@ -77,6 +90,8 @@ public class RobotInfo
     //
     // Digital Input/Output ports.
     //
+    public static int DIO_CARGO_PROXIMITY_SENSOR                = 0;
+
 
     //
     // PWM Channels.
@@ -86,11 +101,13 @@ public class RobotInfo
     //
     // Relay channels.
     //
-    public static final int RELAY_RINGLIGHT_POWER               = 0;    // 20A: Purple
+    public static final int RELAY_RINGLIGHT_POWER               = 0;    // 20A: Green
 
     //
     // Solenoid channels.
     //
+    public static final int SOL_HATCH_DEPLOYER_RETRACT          = 0;
+    public static final int SOL_HATCH_DEPLOYER_EXTEND           = 1;
 
     //
     // Vision subsystem.
@@ -100,8 +117,11 @@ public class RobotInfo
     public static final int PIXY_BRIGHTNESS                     = 80;
     public static final double PIXY_CAM_OFFSET                  = 8.0;
     public static final PixyVision.Orientation PIXY_ORIENTATION = PixyVision.Orientation.NORMAL_LANDSCAPE;
-    public static final int PIXYCAM_I2C_ADDRESS                 = FrcPixyCam.DEF_I2C_ADDRESS;
+    public static final int PIXYCAM_I2C_ADDRESS                 = FrcPixyCam1.DEF_I2C_ADDRESS;
     public static final int PIXY_TARGET_SIGNATURE               = 1;
+
+    public static final double CAMERA_DEPTH                     = 3; // Inches from center of EE to center of camera, + = right
+    public static final double CAMERA_OFFSET                    = 4; // Inches from center of EE to center of camera, + = backward
 
     //
     // Ultrasonic sensors.
@@ -143,5 +163,62 @@ public class RobotInfo
     public static final double GYRO_TURN_KD                     = 0.00175;
     public static final double GYRO_TURN_KF                     = 0.0;
     public static final double GYRO_TURN_TOLERANCE              = 2.0;
+
+    //
+    // Pickup subsystem
+    //
+    // TODO: Tune all of this
+    public static final double PICKUP_DEGREES_PER_COUNT         = 1.0;
+    public static final double PICKUP_KP                        = 0.0;
+    public static final double PICKUP_KI                        = 0.0;
+    public static final double PICKUP_KD                        = 0.0;
+    public static final double PICKUP_TOLERANCE                 = 2.0; // 2 degrees
+    public static final double PICKUP_CALIBRATE_POWER           = 0.0;
+    public static final double PICKUP_MIN_POS                   = 0.0; // Parallel to ground
+    public static final double PICKUP_MAX_POS                   = 90.0; // Perpendicular to ground
+    public static final double PICKUP_PID_FLOOR                 = PICKUP_MIN_POS - 2.0;
+    public static final double PICKUP_PID_CEILING               = PICKUP_MAX_POS + 2.0;
+    public static final double PICKUP_GRAVITY_COMP              = 0.0;
+    public static final double PICKUP_STALL_MIN_POWER           = 0.3;
+    public static final double PICKUP_STALL_TIMEOUT             = 0.5;
+    public static final double PICKUP_STALL_RESET_TIMEOUT       = 0.5;
+    public static final double PICKUP_FREE_SPIN_CURRENT         = 5.0;
+    public static final double PICKUP_STALL_CURRENT             =  25;
+
+    //
+    // Elevator subsystem
+    //
+    // TODO: Tune all of this
+    public static final double ELEVATOR_INCHES_PER_COUNT        = 1.0;
+    public static final double ELEVATOR_KP                      = 0.0;
+    public static final double ELEVATOR_KI                      = 0.0;
+    public static final double ELEVATOR_KD                      = 0.0;
+    public static final double ELEVATOR_TOLERANCE               = 1.0; // 1 in
+    public static final double ELEVATOR_CALIBRATE_POWER         = 0.0;
+    public static final double ELEVATOR_MIN_POS                 = 6.0;
+    public static final double ELEVATOR_MAX_POS                 = 60.0;
+    public static final double ELEVATOR_PID_FLOOR               = ELEVATOR_MIN_POS - 2.0;
+    public static final double ELEVATOR_PID_CEILING             = ELEVATOR_MAX_POS + 2.0;
+    public static final double ELEVATOR_GRAVITY_COMP            = 0.0;
+    public static final double ELEVATOR_STALL_MIN_POWER         = 0.3;
+    public static final double ELEVATOR_STALL_TIMEOUT           = 0.5;
+    public static final double ELEVATOR_STALL_RESET_TIMEOUT     = 0.5;
+
+    public static final double ELEVATOR_DRIVE_POS               = 20.0;
+
+    //
+    // Pixy line following subsystem
+    //
+    // In inches. These will need to be adjusted when the Pixy2 is mounted.
+    // These are the scaled lengths of the camera's FoV's furthest visible length and width 
+    // in real-world measurements.
+    //
+    // PIXY2_LINE_TRACKING_HEIGHT and PIXY2_LINE_TRACKING_WIDTH are the dimensions of the Pixy2's line-tracking resolution.
+    // Source: https://forum.pixycam.com/t/resolution-tracking-pixy2/5646/2
+    //
+    public static final double WIDTH_COEFFICIENT                = 5.0; // inches
+    public static final double HEIGHT_COEFFICIENT               = 3.0; // inches
+    public static final int PIXY2_LINE_TRACKING_HEIGHT          = 104; // pixels
+    public static final int PIXY2_LINE_TRACKING_WIDTH           = 636; // pixels
 
 }   // class RobotInfo

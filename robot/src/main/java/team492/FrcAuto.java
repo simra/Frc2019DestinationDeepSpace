@@ -30,19 +30,14 @@ import trclib.TrcRobot;
 import trclib.TrcRobot.RunMode;
 import trclib.TrcTaskMgr;
 
-public class FrcAuto implements TrcRobot.RobotMode
+public class FrcAuto extends FrcTeleOp
 {
     private static final String moduleName = "FrcAuto";
     private static final boolean DO_UPDATES = false;
 
     public static enum AutoStrategy
     {
-        X_TIMED_DRIVE,
-        Y_TIMED_DRIVE,
-        X_DISTANCE_DRIVE,
-        Y_DISTANCE_DRIVE,
-        TURN_DEGREES,
-        DO_NOTHING
+        X_TIMED_DRIVE, Y_TIMED_DRIVE, X_DISTANCE_DRIVE, Y_DISTANCE_DRIVE, TURN_DEGREES, DO_NOTHING
     } // enum AutoStrategy
 
     private Robot robot;
@@ -53,11 +48,13 @@ public class FrcAuto implements TrcRobot.RobotMode
     private FrcChoiceMenu<AutoStrategy> autoStrategyMenu;
     private AutoStrategy autoStrategy;
     private double delay;
-    
+
     private TrcRobot.RobotCommand autoCommand;
 
     public FrcAuto(Robot robot)
     {
+        super(robot);
+
         this.robot = robot;
         //
         // Create Autonomous Mode specific menus.
@@ -74,6 +71,21 @@ public class FrcAuto implements TrcRobot.RobotMode
         autoStrategyMenu.addChoice("Do Nothing", AutoStrategy.DO_NOTHING, false, true);
     } // FrcAuto
 
+    public boolean isAutoActive()
+    {
+        return autoCommand != null && autoCommand.isActive();
+    }
+
+    public void cancel()
+    {
+        if (autoCommand != null)
+        {
+            autoCommand.cancel();
+            autoCommand = null;
+            autoStrategy = AutoStrategy.DO_NOTHING;
+        }
+    }
+
     //
     // Implements TrcRobot.RunMode.
     //
@@ -81,15 +93,16 @@ public class FrcAuto implements TrcRobot.RobotMode
     @Override
     public void startMode(RunMode prevMode, RunMode nextMode)
     {
+        // Init teleop since we're in sandstorm mode
+        super.startMode(prevMode, nextMode);
+
         final String funcName = moduleName + ".startMode";
 
         robot.getGameInfo();
-        robot.globalTracer.traceInfo(funcName, "%s_%s%03d (%s%d) [FMSConnected=%b] msg=%s",
-            robot.eventName, robot.matchType, robot.matchNumber, robot.alliance.toString(), robot.location,
-            robot.ds.isFMSAttached(), robot.gameSpecificMessage);
-
-        robot.encoderXPidCtrl.setOutputLimit(RobotInfo.DRIVE_MAX_XPID_POWER);
-        robot.encoderYPidCtrl.setOutputLimit(RobotInfo.DRIVE_MAX_YPID_POWER);
+        robot.globalTracer
+            .traceInfo(funcName, "%s_%s%03d (%s%d) [FMSConnected=%b] msg=%s", robot.eventName, robot.matchType,
+                robot.matchNumber, robot.alliance.toString(), robot.location, robot.ds.isFMSAttached(),
+                robot.gameSpecificMessage);
 
         //
         // Retrieve menu choice values.
@@ -107,18 +120,18 @@ public class FrcAuto implements TrcRobot.RobotMode
                 break;
 
             case X_DISTANCE_DRIVE:
-                autoCommand = new CmdPidDrive(
-                    robot, robot.pidDrive, delay, robot.driveDistance, 0.0, 0.0, robot.drivePowerLimit, false);
+                autoCommand = new CmdPidDrive(robot, robot.pidDrive, delay, robot.driveDistance, 0.0, 0.0,
+                    robot.drivePowerLimit, false);
                 break;
 
             case Y_DISTANCE_DRIVE:
-                autoCommand = new CmdPidDrive(
-                    robot, robot.pidDrive, delay, 0.0, robot.driveDistance, 0.0, robot.drivePowerLimit, false);
+                autoCommand = new CmdPidDrive(robot, robot.pidDrive, delay, 0.0, robot.driveDistance, 0.0,
+                    robot.drivePowerLimit, false);
                 break;
 
             case TURN_DEGREES:
-                autoCommand = new CmdPidDrive(
-                    robot, robot.pidDrive, delay, 0.0, 0.0, robot.turnDegrees, robot.drivePowerLimit, false);
+                autoCommand = new CmdPidDrive(robot, robot.pidDrive, delay, 0.0, 0.0, robot.turnDegrees,
+                    robot.drivePowerLimit, false);
                 break;
 
             case DO_NOTHING:
@@ -140,6 +153,11 @@ public class FrcAuto implements TrcRobot.RobotMode
         {
             robot.updateDashboard(RunMode.AUTO_MODE);
             robot.announceSafety();
+        }
+
+        if (!robot.isAutoActive())
+        {
+            super.runPeriodic(elapsedTime);
         }
     } // runPeriodic
 
