@@ -7,6 +7,10 @@ import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint2f;
 import org.opencv.calib3d.*;
+
+import static org.junit.Assume.assumeNoException;
+
+import java.util.ArrayList;
 import java.util.LinkedList;
 
 public class LineFollowingUtils
@@ -125,7 +129,48 @@ public class LineFollowingUtils
             pMat.put(1, 0, p.y);
             Mat result = new Mat();
             Core.gemm(this.H, pMat, 1.0, new Mat(), 0, result);
-            return new Point(result.get(0, 0)[0]/result.get(0,2)[0],result.get(0,1)[0]/result.get(0,2)[0]); // Result has to be scaled by Z.
+            return new Point(
+                result.get(0, 0)[0]/result.get(0,2)[0],
+                result.get(0, 1)[0]/result.get(0,2)[0]); // Result has to be scaled by Z.
         }
+        
+        // test the image corners.  Todo: test the center and middles of the edges.
+        public static boolean Test() {
+            CameraFieldOfView fov = new CameraFieldOfView(
+                new Point(-2, 2), 
+                new Point( 2, 2), 
+                new Point(-1, 1), 
+                new Point( 1, 1),
+                320, 240);
+            
+            Point[] testIn = new Point[4];
+            Point[] testOut = new Point[4];
+
+            testIn[0]=new Point(0,0);
+            testOut[0] = fov.topLeft;
+
+            testIn[1] = new Point(fov.xResolution,0);
+            testOut[1] = fov.topRight;
+            
+            testIn[2] = new Point(0,fov.yResolution);
+            testOut[2] = fov.bottomLeft;
+
+            testIn[3] = new Point(fov.xResolution,fov.yResolution);
+            testOut[3] = fov.bottomRight;
+
+            boolean success = true;
+            int i;
+            for (i=0; i<testIn.length; i++) 
+            {
+                Point pOut = fov.GetRealWorldCoords(testIn[i]);
+                double dx = pOut.x - testOut[i].x;
+                double dy = pOut.y - testOut[i].y;
+                double distance = Math.sqrt( dx * dx + dy * dy);
+                success = success && distance < 1e-5;
+            }
+            return success;
+
+        }
+
     }
 }
