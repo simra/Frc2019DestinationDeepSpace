@@ -8,6 +8,7 @@ import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint2f;
 import org.opencv.calib3d.*;
 import java.util.LinkedList;
+import org.junit.*;
 
 public class LineFollowingUtils
 {
@@ -131,7 +132,8 @@ public class LineFollowingUtils
         }
         
         // test the image corners.  Todo: test the center and middles of the edges.
-        public static boolean Test() {
+        @Test
+        public static void Test() {
             CameraFieldOfView fov = new CameraFieldOfView(
                 new Point(-2, 2), 
                 new Point( 2, 2), 
@@ -164,8 +166,7 @@ public class LineFollowingUtils
                 double distance = Math.sqrt( dx * dx + dy * dy);
                 success = success && distance < 1e-5;
             }
-            return success;
-
+            org.junit.Assert.assertTrue(success);
         }
 
     }
