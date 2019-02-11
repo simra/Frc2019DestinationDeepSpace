@@ -7,10 +7,6 @@ import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint2f;
 import org.opencv.calib3d.*;
-
-import static org.junit.Assume.assumeNoException;
-
-import java.util.ArrayList;
 import java.util.LinkedList;
 
 public class LineFollowingUtils
