@@ -45,9 +45,12 @@ public class CmdRobotTargetAlign
     private double targetX = 0.0;
     private double targetY = 0.0;
 
+    private LineFollowingUtils lfu;
+
     public CmdRobotTargetAlign(Robot robot)
     {
         this.robot = robot;
+        lfu = new LineFollowingUtils();
         sm = new TrcStateMachine<>(instanceName + ".stateMachine");
         event = new TrcEvent(instanceName + ".event");
         lineAlignmentTask = TrcTaskMgr.getInstance().createTask(instanceName + ".lineAlignTask", this::lineAlignTask);
@@ -94,95 +97,51 @@ public class CmdRobotTargetAlign
         }
         else
         {
-            lineAlignmentTask.unregisterTask(TrcTaskMgr.TaskType.POSTPERIODIC_TASK);
+            lineAlignmentTask.unregisterTask(TrcTaskMgr.TaskType.POSTCONTINUOUS_TASK);
         }
     }
-
-    private int alignAngleTries = 0;
 
     private void lineAlignTask(TrcTaskMgr.TaskType type, TrcRobot.RunMode mode)
     {
         State state = sm.checkReadyAndGetState();
-        State nextState;
 
         if (state != null)
         {
             switch (sm.getState())
             {
                 case START:
-                    alignAngleTries = 0;
                     robot.globalTracer.traceInfo(instanceName, "%s: Starting robot alignment assist.", state);
                     sm.setState(State.ALIGN_ROBOT);
                     break;
 
                 case ALIGN_ROBOT:
-                    robot.globalTracer.traceInfo(instanceName, "%s: Trying to align robot (try %d of 3)", state,
-                        alignAngleTries);
-                    Vector[] possiblePaths = robot.pixy.getLineVectors();
+                    Vector lineVector = robot.pixy.getLineVector();
 
-                    if (possiblePaths == null)
+                    if (lineVector == null)
                     {
-                        robot.globalTracer.traceInfo(instanceName, "%s: Pixy2 not found! Quitting...", state);
-                        nextState = State.DONE;
+                        robot.globalTracer.traceInfo(instanceName, "%s: I don't see a line! Quitting...", state);
+                        sm.setState(State.DONE);
                     }
                     else
                     {
-                        if (possiblePaths.length == 0)
-                        {
-                            robot.globalTracer.traceInfo(instanceName, "%s: I don't see a line! Quitting...", state);
-                            nextState = State.DONE;
-                        }
-                        else
-                        {
-                            robot.globalTracer.traceInfo(instanceName, "%s: Found %d possible lines.", state,
-                                possiblePaths.length);
-                            Vector toPick = null;
-                            double bestLength = 0.0;
-                            for (int i = 0; i < possiblePaths.length; i++)
-                            {
-                                Vector current = possiblePaths[i];
-                                double curLength = Math.sqrt(((current.y1 - current.y0) * (current.y1 - current.y0))
-                                    + ((current.x1 - current.x0) * (current.x1 - current.x0)));
-                                if (curLength > bestLength)
-                                {
-                                    bestLength = curLength;
-                                    toPick = current;
-                                }
-                            }
+                        robot.globalTracer.traceInfo(instanceName, "%s: Line found! line=%s", state, lineVector);
 
-                            robot.globalTracer.traceInfo(instanceName, "%s: Line found! Index: %d, length: %.2f pixels",
-                                state, toPick.index, bestLength);
+                        LineFollowingUtils.RealWorldPair origin = lfu.getRWP(lineVector.x0, lineVector.y0);
+                        LineFollowingUtils.RealWorldPair p2 = lfu.getRWP(lineVector.x1, lineVector.y1);
+                        double degrees = lfu.getTurnDegrees(lfu.getAngle(origin, p2));
 
-                            LineFollowingUtils.RealWorldPair origin = LineFollowingUtils.getRWP(toPick.x0, toPick.y0,
-                                RobotInfo.WIDTH_COEFFICIENT, RobotInfo.HEIGHT_COEFFICIENT);
-                            LineFollowingUtils.RealWorldPair p2 = LineFollowingUtils.getRWP(toPick.x1, toPick.y1,
-                                RobotInfo.WIDTH_COEFFICIENT, RobotInfo.HEIGHT_COEFFICIENT);
-                            double degrees = LineFollowingUtils.getTurnDegrees(LineFollowingUtils.getAngle(origin, p2));
-
-                            robot.globalTracer.traceInfo(instanceName,
-                                "%s: Vector origin: (%d, %d) -> %.2f in, %.2f in", state, toPick.x0, toPick.y0,
-                                origin.getXLength(), origin.getYLength());
-                            robot.globalTracer.traceInfo(instanceName,
-                                "%s: Vector vertex: (%d, %d) -> %.2f in, %.2f in", state, toPick.x1, toPick.y1,
-                                p2.getXLength(), p2.getYLength());
-                            robot.globalTracer.traceInfo(instanceName, "%s: Target heading set to %.2f °", state, 
-                                degrees);
-                            robot.targetHeading = robot.driveBase.getHeading() + degrees;
-                            robot.pidDrive.setTarget(targetX, targetY, robot.targetHeading, false, event);
-
-                            if (alignAngleTries >= 3)
-                            {
-                                nextState = State.DONE;
-                            }
-                            else
-                            {
-                                alignAngleTries++;
-                                nextState = State.ALIGN_ROBOT;
-                            }
-                        }
+                        robot.globalTracer.traceInfo(instanceName,
+                            "%s: Vector origin: (%d, %d) -> %.2f, %.2f", state, lineVector.x0, lineVector.y0,
+                            origin.getXLength(), origin.getYLength());
+                        robot.globalTracer.traceInfo(instanceName,
+                            "%s: Vector vertex: (%d, %d) -> %.2f, %.2f", state, lineVector.x1, lineVector.y1,
+                            p2.getXLength(), p2.getYLength());
+                        robot.globalTracer.traceInfo(instanceName, "%s: Target heading set to %.2f °", state, 
+                            degrees);
+                        robot.targetHeading = robot.driveBase.getHeading() + degrees;
+                        robot.pidDrive.setTarget(targetX, targetY, robot.targetHeading, false, event);
+                        sm.waitForSingleEvent(event, State.DONE);
                     }
-
-                    sm.waitForSingleEvent(event, nextState);
                     break;
 
                 case DONE:
