@@ -23,6 +23,7 @@
 package team492;
 
 import frclib.FrcCANTalon;
+import frclib.FrcCANTalonLimitSwitch;
 import trclib.TrcEvent;
 import trclib.TrcPidActuator;
 import trclib.TrcPidController;
@@ -36,22 +37,31 @@ public class Elevator
     public Elevator()
     {
         motor = new FrcCANTalon("ElevatorMotor", RobotInfo.CANID_ELEVATOR);
+        motor.setInverted(true);
+        motor.setPositionSensorInverted(true);
+        motor.motor.overrideLimitSwitchesEnable(true);
         motor.configFwdLimitSwitchNormallyOpen(false);
         motor.configRevLimitSwitchNormallyOpen(false);
-        motor.setInverted(true);
         motor.setBrakeModeEnabled(true);
-        motor.motor.overrideLimitSwitchesEnable(false); // debugging only
 
         // TODO: Tune ALL of these constants
         TrcPidController.PidCoefficients pidCoefficients = new TrcPidController.PidCoefficients(RobotInfo.ELEVATOR_KP,
             RobotInfo.ELEVATOR_KI, RobotInfo.ELEVATOR_KD);
         TrcPidController pidController = new TrcPidController("ElevatorPidController", pidCoefficients,
             RobotInfo.ELEVATOR_TOLERANCE, this::getPosition);
-        elevator = new TrcPidActuator("ElevatorActuator", motor, pidController, RobotInfo.ELEVATOR_CALIBRATE_POWER,
-            RobotInfo.ELEVATOR_PID_FLOOR, RobotInfo.ELEVATOR_PID_CEILING, () -> RobotInfo.ELEVATOR_GRAVITY_COMP);
+        FrcCANTalonLimitSwitch lowerLimitSwitch = new FrcCANTalonLimitSwitch("ElevatorLowerLimitSwitch", motor, false);
+        // TODO: Need to determine the proper gravity compensation value.
+        elevator = new TrcPidActuator("ElevatorActuator", motor, lowerLimitSwitch, pidController,
+            RobotInfo.ELEVATOR_CALIBRATE_POWER, RobotInfo.ELEVATOR_PID_FLOOR, RobotInfo.ELEVATOR_PID_CEILING,
+            () -> RobotInfo.ELEVATOR_GRAVITY_COMP);
         elevator.setPositionScale(RobotInfo.ELEVATOR_INCHES_PER_COUNT, RobotInfo.ELEVATOR_MIN_POS);
         elevator.setStallProtection(RobotInfo.ELEVATOR_STALL_MIN_POWER, RobotInfo.ELEVATOR_STALL_TIMEOUT,
             RobotInfo.ELEVATOR_STALL_RESET_TIMEOUT);
+    }
+
+    public double getPower()
+    {
+        return motor.getPower();
     }
 
     public void setManualOverrideEnabled(boolean enabled)
@@ -64,10 +74,10 @@ public class Elevator
         elevator.zeroCalibrate();
     }
 
-    public void setPosition(double position)
+    public void setPosition(double position, TrcEvent event, double timeout)
     {
         position = TrcUtil.clipRange(position, RobotInfo.ELEVATOR_MIN_POS, RobotInfo.ELEVATOR_MAX_POS);
-        elevator.setTarget(position, position != RobotInfo.ELEVATOR_MIN_POS);
+        elevator.setTarget(position, event, timeout);
     }
 
     public void setPosition(double position, TrcEvent event)
@@ -75,14 +85,30 @@ public class Elevator
         setPosition(position, event, 0.0);
     }
 
-    public void setPosition(double position, TrcEvent event, double timeout)
+    public void setPosition(double position)
     {
-        elevator.setTarget(position, event, timeout);
+        position = TrcUtil.clipRange(position, RobotInfo.ELEVATOR_MIN_POS, RobotInfo.ELEVATOR_MAX_POS);
+        elevator.setTarget(position, position != RobotInfo.ELEVATOR_MIN_POS);
+    }
+
+    public boolean isUpperLimitSwitchActive()
+    {
+        return motor.isUpperLimitSwitchActive();
+    }
+
+    public boolean isLowerLimitSwitchActive()
+    {
+        return motor.isLowerLimitSwitchActive();
     }
 
     public double getPosition()
     {
         return elevator.getPosition();
+    }
+
+    public double getRawPosition()
+    {
+        return motor.getPosition();
     }
 
     public void setPower(double power)
@@ -92,7 +118,7 @@ public class Elevator
 
     public void setPower(double power, boolean hold)
     {
-        motor.set(power);
-        //elevator.setPower(power, hold);
+        power = TrcUtil.clipRange(power, -1.0, 1.0);
+        elevator.setPower(power, hold);
     }
 }

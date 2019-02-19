@@ -26,6 +26,8 @@ import frclib.FrcJoystick;
 import trclib.TrcRobot;
 import trclib.TrcRobot.RunMode;
 
+import java.util.Arrays;
+
 public class FrcTeleOp implements TrcRobot.RobotMode
 {
     private enum DriveMode
@@ -39,6 +41,7 @@ public class FrcTeleOp implements TrcRobot.RobotMode
     private DriveMode driveMode = DriveMode.MECANUM_MODE;
     private boolean driveInverted = false;
     private boolean gyroAssist = false;
+    private double lastElevatorPower = 0.0;
 
     public FrcTeleOp(Robot robot)
     {
@@ -76,51 +79,11 @@ public class FrcTeleOp implements TrcRobot.RobotMode
     public void runPeriodic(double elapsedTime)
     {
         double elevatorPower = robot.operatorStick.getYWithDeadband(true);
-        robot.elevator.setPower(elevatorPower, false); // For debugging purposes, leave it false.
 
         double leftDriveX = robot.leftDriveStick.getXWithDeadband(true);
         double leftDriveY = robot.leftDriveStick.getYWithDeadband(true);
         double rightDriveY = robot.rightDriveStick.getYWithDeadband(true);
-        //
-        // DriveBase operation.
-        //
-        switch (driveMode)
-        {
-            case TANK_MODE:
-                double leftPower = leftDriveY;
-                double rightPower = rightDriveY;
-                if (slowDriveOverride)
-                {
-                    leftPower /= RobotInfo.DRIVE_SLOW_YSCALE;
-                    rightPower /= RobotInfo.DRIVE_SLOW_YSCALE;
-                }
-                robot.driveBase.tankDrive(leftPower, rightPower, driveInverted);
-                break;
-
-            case ARCADE_MODE:
-                double drivePower = rightDriveY;
-                double turnPower = robot.rightDriveStick.getTwistWithDeadband(true);
-                if (slowDriveOverride)
-                {
-                    drivePower /= RobotInfo.DRIVE_SLOW_YSCALE;
-                    turnPower /= RobotInfo.DRIVE_SLOW_TURNSCALE;
-                }
-                robot.driveBase.arcadeDrive(drivePower, turnPower, driveInverted);
-                break;
-
-            case MECANUM_MODE:
-                double x = leftDriveX;
-                double y = rightDriveY;
-                double rot = robot.rightDriveStick.getTwistWithDeadband(true);
-                if (slowDriveOverride)
-                {
-                    x /= RobotInfo.DRIVE_SLOW_XSCALE;
-                    y /= RobotInfo.DRIVE_SLOW_YSCALE;
-                    rot /= RobotInfo.DRIVE_SLOW_TURNSCALE;
-                }
-                robot.driveBase.holonomicDrive(x, y, rot, driveInverted);
-                break;
-        }
+        double rightTwist = robot.rightDriveStick.getTwistWithDeadband(true);
 
         robot.updateDashboard(RunMode.TELEOP_MODE);
         robot.announceSafety();
@@ -130,7 +93,62 @@ public class FrcTeleOp implements TrcRobot.RobotMode
             // Force update of LEDs
             robot.pixy.getTargetInfo();
         }
+
+        if (shouldCancelAuto(leftDriveX, leftDriveY, rightDriveY, rightTwist) || !robot.isAutoActive())
+        {
+            robot.cancelAllAuto();
+            if (elevatorPower != lastElevatorPower)
+            {
+                robot.elevator.setPower(elevatorPower);
+                lastElevatorPower = elevatorPower;
+            }
+            //
+            // DriveBase operation.
+            //
+            switch (driveMode)
+            {
+                case TANK_MODE:
+                    double leftPower = leftDriveY;
+                    double rightPower = rightDriveY;
+                    if (slowDriveOverride)
+                    {
+                        leftPower /= RobotInfo.DRIVE_SLOW_YSCALE;
+                        rightPower /= RobotInfo.DRIVE_SLOW_YSCALE;
+                    }
+                    robot.driveBase.tankDrive(leftPower, rightPower, driveInverted);
+                    break;
+
+                case ARCADE_MODE:
+                    double drivePower = rightDriveY;
+                    double turnPower = rightTwist;
+                    if (slowDriveOverride)
+                    {
+                        drivePower /= RobotInfo.DRIVE_SLOW_YSCALE;
+                        turnPower /= RobotInfo.DRIVE_SLOW_TURNSCALE;
+                    }
+                    robot.driveBase.arcadeDrive(drivePower, turnPower, driveInverted);
+                    break;
+
+                case MECANUM_MODE:
+                    double x = leftDriveX;
+                    double y = rightDriveY;
+                    double rot = rightTwist;
+                    if (slowDriveOverride)
+                    {
+                        x /= RobotInfo.DRIVE_SLOW_XSCALE;
+                        y /= RobotInfo.DRIVE_SLOW_YSCALE;
+                        rot /= RobotInfo.DRIVE_SLOW_TURNSCALE;
+                    }
+                    robot.driveBase.holonomicDrive(x, y, rot, driveInverted);
+                    break;
+            }
+        }
     } // runPeriodic
+
+    private boolean shouldCancelAuto(double... joystickValues)
+    {
+        return Arrays.stream(joystickValues).anyMatch(d -> d != 0.0);
+    }
 
     @Override
     public void runContinuous(double elapsedTime)
@@ -141,9 +159,15 @@ public class FrcTeleOp implements TrcRobot.RobotMode
     // Implements TrcJoystick.ButtonHandler.
     //
 
+    // CodeReview: If Auto is active, you don't allow any button event through so you can't cancel auto on a button
+    // release???
     public void leftDriveStickButtonEvent(int button, boolean pressed)
     {
         robot.dashboard.displayPrintf(8, " LeftDriveStick: button=0x%04x %s", button, pressed ? "pressed" : "released");
+        if (robot.isAutoActive())
+        {
+            return;
+        }
 
         switch (button)
         {
@@ -188,6 +212,10 @@ public class FrcTeleOp implements TrcRobot.RobotMode
     public void rightDriveStickButtonEvent(int button, boolean pressed)
     {
         robot.dashboard.displayPrintf(8, "RightDriveStick: button=0x%04x %s", button, pressed ? "pressed" : "released");
+        if (robot.isAutoActive())
+        {
+            return;
+        }
 
         switch (button)
         {
@@ -237,11 +265,22 @@ public class FrcTeleOp implements TrcRobot.RobotMode
     public void operatorStickButtonEvent(int button, boolean pressed)
     {
         robot.dashboard.displayPrintf(8, "  OperatorStick: button=0x%04x %s", button, pressed ? "pressed" : "released");
+        if (robot.isAutoActive())
+        {
+            return;
+        }
 
         switch (button)
         {
             case FrcJoystick.LOGITECH_TRIGGER:
-                robot.pickup.setPickupPower(pressed ? 1.0 : 0.0);
+                if (pressed)
+                {
+                    robot.pickup.pickupCargo(null);
+                }
+                else
+                {
+                    robot.pickup.cancel();
+                }
                 break;
 
             case FrcJoystick.LOGITECH_BUTTON2:
@@ -256,34 +295,51 @@ public class FrcTeleOp implements TrcRobot.RobotMode
                 break;
 
             case FrcJoystick.LOGITECH_BUTTON3:
-                robot.pickup.setPickupPower(pressed ? -0.5 : 0.0);
+                if (pressed)
+                {
+                    robot.pickup.deployCargo(null);
+                }
+                else
+                {
+                    robot.pickup.cancel();
+                }
                 break;
 
             case FrcJoystick.LOGITECH_BUTTON4:
+                robot.elevator.setManualOverrideEnabled(pressed);
                 break;
 
             case FrcJoystick.LOGITECH_BUTTON5:
+                robot.pickup.setManualOverrideEnabled(pressed);
                 break;
 
             case FrcJoystick.LOGITECH_BUTTON6:
-                robot.pickup.setPitchPower(pressed ? -0.25 : 0.0, false);
+                robot.pickup.setPitchPower(pressed ? 0.6 : 0.0);
                 break;
 
             case FrcJoystick.LOGITECH_BUTTON7:
-                robot.pickup.setPitchPower(pressed ? 0.6 : 0.0, false);
+                robot.pickup.setPitchPower(pressed ? -0.75 : 0.0);
                 break;
 
             case FrcJoystick.LOGITECH_BUTTON8:
+                if (pressed)
+                {
+                    robot.pickup.setPickupAngle(0.0);
+                }
                 break;
 
             case FrcJoystick.LOGITECH_BUTTON9:
+                if (pressed)
+                {
+                    robot.pickup.setPickupAngle(90.0);
+                }
                 break;
 
             case FrcJoystick.LOGITECH_BUTTON10:
                 if (pressed)
                 {
                     // Lower right button on joystick base.
-                    robot.autoTargetAlign.start(null);
+                    robot.autoAlignTarget.start(null);
                 }
                 break;
 
@@ -298,6 +354,10 @@ public class FrcTeleOp implements TrcRobot.RobotMode
     public void buttonPanelButtonEvent(int button, boolean pressed)
     {
         robot.dashboard.displayPrintf(8, "  OperatorStick: button=0x%04x %s", button, pressed ? "pressed" : "released");
+        if (robot.isAutoActive())
+        {
+            return;
+        }
 
         /*
         Button mappings:
@@ -319,7 +379,7 @@ public class FrcTeleOp implements TrcRobot.RobotMode
                 if (pressed)
                 {
                     robot.autoDeploy
-                        .start(RobotInfo.ELEVATOR_POS_HATCH_ROCKET_HIGH, CmdAutoDeploy.DeployType.HATCH, null);
+                        .start(RobotInfo.ELEVATOR_POS_HATCH_ROCKET_HIGH, TaskAutoDeploy.DeployType.HATCH, null);
                 }
                 break;
 
@@ -327,7 +387,7 @@ public class FrcTeleOp implements TrcRobot.RobotMode
                 if (pressed)
                 {
                     robot.autoDeploy
-                        .start(RobotInfo.ELEVATOR_POS_HATCH_ROCKET_MED, CmdAutoDeploy.DeployType.HATCH, null);
+                        .start(RobotInfo.ELEVATOR_POS_HATCH_ROCKET_MED, TaskAutoDeploy.DeployType.HATCH, null);
                 }
                 break;
 
@@ -335,7 +395,7 @@ public class FrcTeleOp implements TrcRobot.RobotMode
                 if (pressed)
                 {
                     robot.autoDeploy
-                        .start(RobotInfo.ELEVATOR_POS_HATCH_ROCKET_LOW, CmdAutoDeploy.DeployType.HATCH, null);
+                        .start(RobotInfo.ELEVATOR_POS_HATCH_ROCKET_LOW, TaskAutoDeploy.DeployType.HATCH, null);
                 }
                 break;
 
@@ -343,7 +403,7 @@ public class FrcTeleOp implements TrcRobot.RobotMode
                 if (pressed)
                 {
                     robot.autoDeploy
-                        .start(RobotInfo.ELEVATOR_POS_CARGO_ROCKET_HIGH, CmdAutoDeploy.DeployType.CARGO, null);
+                        .start(RobotInfo.ELEVATOR_POS_CARGO_ROCKET_HIGH, TaskAutoDeploy.DeployType.CARGO, null);
                 }
                 break;
 
@@ -351,7 +411,7 @@ public class FrcTeleOp implements TrcRobot.RobotMode
                 if (pressed)
                 {
                     robot.autoDeploy
-                        .start(RobotInfo.ELEVATOR_POS_CARGO_ROCKET_MED, CmdAutoDeploy.DeployType.CARGO, null);
+                        .start(RobotInfo.ELEVATOR_POS_CARGO_ROCKET_MED, TaskAutoDeploy.DeployType.CARGO, null);
                 }
                 break;
 
@@ -359,23 +419,21 @@ public class FrcTeleOp implements TrcRobot.RobotMode
                 if (pressed)
                 {
                     robot.autoDeploy
-                        .start(RobotInfo.ELEVATOR_POS_CARGO_ROCKET_LOW, CmdAutoDeploy.DeployType.CARGO, null);
+                        .start(RobotInfo.ELEVATOR_POS_CARGO_ROCKET_LOW, TaskAutoDeploy.DeployType.CARGO, null);
                 }
                 break;
 
             case FrcJoystick.PANEL_BUTTON7:
                 if (pressed)
                 {
-                    robot.autoDeploy
-                        .start(RobotInfo.ELEVATOR_POS_CARGO_SHIP, CmdAutoDeploy.DeployType.CARGO, null);
+                    robot.autoDeploy.start(RobotInfo.ELEVATOR_POS_CARGO_SHIP, TaskAutoDeploy.DeployType.CARGO, null);
                 }
                 break;
 
             case FrcJoystick.PANEL_BUTTON8:
                 if (pressed)
                 {
-                    robot.autoDeploy
-                        .start(RobotInfo.ELEVATOR_POS_HATCH_SHIP, CmdAutoDeploy.DeployType.HATCH, null);
+                    robot.autoDeploy.start(RobotInfo.ELEVATOR_POS_HATCH_SHIP, TaskAutoDeploy.DeployType.HATCH, null);
                 }
                 break;
 
@@ -383,7 +441,7 @@ public class FrcTeleOp implements TrcRobot.RobotMode
                 if (pressed)
                 {
                     robot.autoDeploy
-                        .start(RobotInfo.ELEVATOR_POS_CARGO_PICKUP, CmdAutoDeploy.DeployType.PICKUP_CARGO, null);
+                        .start(RobotInfo.ELEVATOR_POS_CARGO_PICKUP, TaskAutoDeploy.DeployType.PICKUP_CARGO, null);
                 }
                 break;
 
@@ -391,7 +449,7 @@ public class FrcTeleOp implements TrcRobot.RobotMode
                 if (pressed)
                 {
                     robot.autoDeploy
-                        .start(RobotInfo.ELEVATOR_POS_HATCH_PICKUP, CmdAutoDeploy.DeployType.PICKUP_HATCH, null);
+                        .start(RobotInfo.ELEVATOR_POS_HATCH_PICKUP, TaskAutoDeploy.DeployType.PICKUP_HATCH, null);
                 }
                 break;
         }
