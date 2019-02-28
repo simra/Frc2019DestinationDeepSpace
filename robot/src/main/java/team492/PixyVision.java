@@ -87,6 +87,9 @@ public class PixyVision
     private Rect lastTargetRect = null;
     private double lastTargetRectExpireTime = TrcUtil.getCurrentTime();
 
+    // for additional needed interference filtering.
+    private LineFollowingCameraMasks lfcm;
+
     private void commonInit(Robot robot, int signature, int brightness, Orientation orientation)
     {
         this.robot = robot;
@@ -102,6 +105,24 @@ public class PixyVision
             new Point(RobotInfo.PIXYCAM_WORLD_TOPRIGHT_X, RobotInfo.PIXYCAM_WORLD_TOPRIGHT_Y),
             new Point(RobotInfo.PIXYCAM_WORLD_BOTTOMLEFT_X, RobotInfo.PIXYCAM_WORLD_BOTTOMLEFT_Y),
             new Point(RobotInfo.PIXYCAM_WORLD_BOTTOMRIGHT_X, RobotInfo.PIXYCAM_WORLD_BOTTOMRIGHT_Y));
+
+        /*
+        height 51 length 78
+        resolution: 714x1092
+
+
+        620 402 (top left) -> (44, 29)
+        width 402 (top right) -> (78, 29)
+        620 height (bottom left) -> (44, 51)
+        width height (bottom right) -> (78, 51)
+
+        mid: (61, 40)
+
+        */
+        Rect[] rects = new Rect[1];
+        Rect toAdd = new Rect(61, 40, 17, 11);
+        rects[0] = toAdd;
+        lfcm = new LineFollowingCameraMasks(rects);
     }   //commonInit
 
     public PixyVision(
@@ -192,17 +213,34 @@ public class PixyVision
         return vectors;
     }   //getFeatureVectors
 
+    public Vector[] getFeatureVectorsFiltered()
+    {
+        Vector[] vectors = getFeatureVectors();
+        ArrayList<Vector> tmp = new ArrayList<Vector>();
+        for (Vector current : vectors)
+        {
+            if (lfcm.isOutsideMask(current))
+            {
+                tmp.add(current);
+            }
+        }
+
+        Vector[] toReturn = new Vector[tmp.size()];
+        for (int i = 0; i < tmp.size(); i++)
+        {
+            toReturn[i] = tmp.get(i);
+        }
+        return toReturn;
+    }
+
     public Vector getLineVector()
     {
         final String funcName = "getLineVector";
         Vector lineVector = null;
-        Vector[] vectors = getFeatureVectors();
+        Vector[] vectors = getFeatureVectorsFiltered();
 
         if (vectors != null && vectors.length > 0)
-        {
-
-            /*
-            // Disregard this code and the following two comments for now, we are going to find the centermost vector instead.
+        {   
             // - Ideally, the best line should be the longest line.
             // - This is mostly to filter out any remaining interference that the Pixy might pick up.
             double maxLen = 0.0;
@@ -219,11 +257,13 @@ public class PixyVision
                     lineVector = vectors[i];
                 }
             }
-            */
+            
 
+            /*
             // - Ideally, the best line should be the center-most line.
             // - This is to filter out remaining interference that the Pixy might pick up
             //   and maximize the chances of returning the line that our robot wants to align with.
+            // Disregard this code and the following two comments for now, we are going to find the longest vector instead.
             double centerDistance = Double.MAX_VALUE;
 
             for (int i = 0; i < vectors.length; i++)
@@ -239,13 +279,14 @@ public class PixyVision
                     lineVector = vectors[i];
                 }
             }
+            */
 
             if (debugEnabled)
             {
                 if (lineVector != null)
                 {
-                    // robot.globalTracer.traceInfo(funcName, "Line found (len=%.2f): %s", maxLen, lineVector);
-                    robot.globalTracer.traceInfo(funcName, "Line found (distanceCenter=%.2f): %s", centerDistance, lineVector);
+                    // robot.globalTracer.traceInfo(funcName, "Line found (len=%.2f): %s", centerDistance, lineVector);
+                    robot.globalTracer.traceInfo(funcName, "Line found (distanceCenter=%.2f): %s", maxLen, lineVector);
                 }
                 else
                 {
