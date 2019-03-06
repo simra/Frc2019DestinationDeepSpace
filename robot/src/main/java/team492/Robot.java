@@ -69,7 +69,7 @@ public class Robot extends FrcRobotBase
     public static final boolean USE_TEXT_TO_SPEECH = false;
     public static final boolean USE_MESSAGE_BOARD = false;
     public static final boolean USE_GYRO_ASSIST = false;
-    public static final boolean USE_RASPI_VISION = false;
+    public static final boolean USE_RASPI_VISION = true;
     public static final boolean USE_PIXY_I2C = false;
     public static final boolean USE_PIXY_V2 = false;
     public static final boolean USE_PIXY_LINE_TARGET = false;
@@ -89,6 +89,8 @@ public class Robot extends FrcRobotBase
     public HalDashboard dashboard = HalDashboard.getInstance();
 
     public double targetHeading = 0.0;
+
+    public boolean driveInverted = false;
 
     private double nextUpdateTime = TrcUtil.getCurrentTime();
 
@@ -121,16 +123,6 @@ public class Robot extends FrcRobotBase
     public TrcRobotBattery battery = null;
     public FrcAHRSGyro gyro = null;
     public AnalogInput pressureSensor = null;
-
-    //
-    // Primary robot subystems
-    //
-    public Pickup pickup;
-    public Elevator elevator;
-
-    public TaskAutoDeploy autoDeploy;
-    public TaskAlignTarget autoAlignTarget;
-
     //
     // VisionTargetPipeline subsystem.
     //
@@ -155,6 +147,14 @@ public class Robot extends FrcRobotBase
     public TrcPidController encoderYPidCtrl;
     public TrcPidController gyroTurnPidCtrl;
     public TrcPidDrive pidDrive;
+    //
+    // Primary robot subystems
+    //
+    public Pickup pickup;
+    public Elevator elevator;
+
+    public TaskAutoDeploy autoDeploy;
+    public TaskAlignTarget autoAlignTarget;
     //
     // Define our subsystems for Auto and TeleOp modes.
     //
@@ -236,11 +236,8 @@ public class Robot extends FrcRobotBase
         leftRearWheel = new FrcCANSparkMax("LeftRearWheel", RobotInfo.CANID_LEFTREARWHEEL, true);
         rightFrontWheel = new FrcCANSparkMax("RightFrontWheel", RobotInfo.CANID_RIGHTFRONTWHEEL, true);
         rightRearWheel = new FrcCANSparkMax("RightRearWheel", RobotInfo.CANID_RIGHTREARWHEEL, true);
-        // TODO: set this to karkeys' preferred style (front coast, rear brake)
-        leftFrontWheel.setBrakeModeEnabled(true);
-        rightFrontWheel.setBrakeModeEnabled(true);
-        leftRearWheel.setBrakeModeEnabled(true);
-        rightRearWheel.setBrakeModeEnabled(true);
+        setHalfBrakeModeEnabled(true, false); // Karkeys prefers front coast, back brake
+
         pdp.registerEnergyUsed(RobotInfo.PDP_CHANNEL_LEFT_FRONT_WHEEL, "LeftFrontWheel");
         pdp.registerEnergyUsed(RobotInfo.PDP_CHANNEL_LEFT_REAR_WHEEL, "LeftRearWheel");
         pdp.registerEnergyUsed(RobotInfo.PDP_CHANNEL_RIGHT_FRONT_WHEEL, "RightFrontWheel");
@@ -269,8 +266,8 @@ public class Robot extends FrcRobotBase
         // Create PID controllers for DriveBase PID drive.
         //
         encoderXPidCtrl = new TrcPidController("encoderXPidCtrl",
-            new PidCoefficients(RobotInfo.ENCODER_X_KP, RobotInfo.ENCODER_X_KI, RobotInfo.ENCODER_X_KD,
-                RobotInfo.ENCODER_X_KF), RobotInfo.ENCODER_X_TOLERANCE, driveBase::getXPosition);
+            new PidCoefficients(RobotInfo.ENCODER_X_KP_SMALL, RobotInfo.ENCODER_X_KI_SMALL, RobotInfo.ENCODER_X_KD_SMALL,
+                RobotInfo.ENCODER_X_KF_SMALL), RobotInfo.ENCODER_X_TOLERANCE_SMALL, driveBase::getXPosition);
         encoderYPidCtrl = new TrcPidController("encoderYPidCtrl",
             new PidCoefficients(RobotInfo.ENCODER_Y_KP, RobotInfo.ENCODER_Y_KI, RobotInfo.ENCODER_Y_KD,
                 RobotInfo.ENCODER_Y_KF), RobotInfo.ENCODER_Y_TOLERANCE, driveBase::getYPosition);
@@ -285,6 +282,10 @@ public class Robot extends FrcRobotBase
         encoderXPidCtrl.setOutputLimit(RobotInfo.DRIVE_MAX_XPID_POWER);
         encoderYPidCtrl.setOutputLimit(RobotInfo.DRIVE_MAX_YPID_POWER);
         gyroTurnPidCtrl.setOutputLimit(RobotInfo.DRIVE_MAX_TURNPID_POWER);
+
+        encoderXPidCtrl.setRampRate(RobotInfo.DRIVE_MAX_XPID_RAMP_RATE);
+        encoderYPidCtrl.setRampRate(RobotInfo.DRIVE_MAX_YPID_RAMP_RATE);
+        gyroTurnPidCtrl.setRampRate(RobotInfo.DRIVE_MAX_TURNPID_RAMP_RATE);
 
         //
         // Create other hardware subsystems.
@@ -370,11 +371,11 @@ public class Robot extends FrcRobotBase
 
         if (runMode != RunMode.DISABLED_MODE)
         {
-            setVisionEnabled(false);
             driveBase.setOdometryEnabled(false);
+            setVisionEnabled(false);
             cancelAllAuto();
-            pdp.setTaskEnabled(false);
             battery.setEnabled(false);
+            pdp.setTaskEnabled(false);
 
             for (int i = 0; i < FrcPdp.kPDPChannels; i++)
             {
@@ -691,13 +692,32 @@ public class Robot extends FrcRobotBase
         }
     }   //traceStateInfo
 
+    public void setHalfBrakeModeEnabled(boolean enabled, boolean inverted)
+    {
+        if (enabled)
+        {
+            leftFrontWheel.setBrakeModeEnabled(inverted);
+            rightFrontWheel.setBrakeModeEnabled(inverted);
+            leftRearWheel.setBrakeModeEnabled(!inverted);
+            rightRearWheel.setBrakeModeEnabled(!inverted);
+        }
+        else
+        {
+            leftFrontWheel.setBrakeModeEnabled(true);
+            rightFrontWheel.setBrakeModeEnabled(true);
+            leftRearWheel.setBrakeModeEnabled(true);
+            rightRearWheel.setBrakeModeEnabled(true);
+        }
+    }
+
     //
     // Getters for sensor data.
     //
 
     public double getPressure()
     {
-        return 50.0 * pressureSensor.getVoltage() - 25.0;
+        return (pressureSensor.getVoltage() - 0.5) * 50.0;
+//        return pressureSensor.getScaledValue();
     }   //getPressure
 
     public Double getPixyTargetAngle()

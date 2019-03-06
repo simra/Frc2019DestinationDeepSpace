@@ -140,8 +140,8 @@ public class RobotInfo
     public static final double PIXYCAM_WORLD_BOTTOMRIGHT_X      = 12.0;   // in real-world units.
     public static final double PIXYCAM_WORLD_BOTTOMRIGHT_Y      = 19.0;   // in real-world units.
 
-    public static final double CAMERA_DEPTH                     = 14.5; // Inches from center of EE to center of camera, + = backward
-    public static final double CAMERA_OFFSET                    = 3; // Inches from center of EE to center of camera, + = right
+    public static final double CAMERA_DEPTH                     = 16; // Inches from center of EE to center of camera, + = backward
+    public static final double CAMERA_OFFSET                    = 2; // Inches from center of EE to center of camera, + = right
 
     //
     // Ultrasonic sensors.
@@ -156,20 +156,28 @@ public class RobotInfo
 
     public static final double DRIVE_SLOW_XSCALE                = 0.5;
     public static final double DRIVE_SLOW_YSCALE                = 0.5;
-    public static final double DRIVE_SLOW_TURNSCALE             = 0.6;
+    public static final double DRIVE_SLOW_TURNSCALE             = 0.4;
+
+    public static final double DRIVE_MEDIUM_XSCALE              = 0.75;
+    public static final double DRIVE_MEDIUM_YSCALE              = 0.75;
+    public static final double DRIVE_MEDIUM_TURNSCALE           = 0.6;
 
     public static final double DRIVE_FAST_XSCALE                = 1.0;
     public static final double DRIVE_FAST_YSCALE                = 1.0;
-    public static final double DRIVE_FAST_TURNSCALE             = 1.0;
+    public static final double DRIVE_FAST_TURNSCALE             = 0.8;
 
     public static final double DRIVE_GYRO_ASSIST_KP             = 1.5;
     public static final double DRIVE_MAX_ROTATION_RATE          = 6.5;      //radians per second
 
     public static final double DRIVE_MAX_XPID_POWER             = 0.5;
-    public static final double DRIVE_MAX_YPID_POWER             = 0.7;
+    public static final double DRIVE_MAX_YPID_POWER             = 0.6;
     public static final double DRIVE_MAX_TURNPID_POWER          = 1.0;
 
-    public static final double ENCODER_X_INCHES_PER_COUNT       = 1.305678722;
+    public static final double DRIVE_MAX_XPID_RAMP_RATE         = 0.5;
+    public static final double DRIVE_MAX_YPID_RAMP_RATE         = 0.6;
+    public static final double DRIVE_MAX_TURNPID_RAMP_RATE      = 1.0;
+
+    public static final double ENCODER_X_INCHES_PER_COUNT       = 1.971078567;
     public static final double ENCODER_X_KP                     = 0.05;
     public static final double ENCODER_X_KI                     = 0.0;
     public static final double ENCODER_X_KD                     = 0.0;
@@ -179,10 +187,10 @@ public class RobotInfo
     public static final double ENCODER_X_KP_SMALL               = 0.06;
     public static final double ENCODER_X_KI_SMALL               = 0.0;
     public static final double ENCODER_X_KD_SMALL               = 0.0;
-    public static final double ENCODER_X_KF_SMALL_              = 0.0;
-    public static final double ENCODER_X_TOLERANCE_SMALL        = 1.0;
+    public static final double ENCODER_X_KF_SMALL               = 0.0;
+    public static final double ENCODER_X_TOLERANCE_SMALL        = 0.8;
 
-    public static final double ENCODER_Y_INCHES_PER_COUNT       = 2.125436537;
+    public static final double ENCODER_Y_INCHES_PER_COUNT       = 2.360546194;
     public static final double ENCODER_Y_KP                     = 0.02;
     public static final double ENCODER_Y_KI                     = 0.0;
     public static final double ENCODER_Y_KD                     = 0.0016;
@@ -223,8 +231,8 @@ public class RobotInfo
     public static final double PICKUP_MAX_TORQUE                = PICKUP_WEIGHT * PICKUP_CG_DISTANCE; // Max torque required to hold up
     public static final double PICKUP_PERCENT_TORQUE            = PICKUP_MAX_TORQUE / PITCH_MOTOR_SHAFT_MAX_TORQUE;
 
-    public static final double PICKUP_HATCH_PICKUP_POS          = 15.3;
-    public static final double PICKUP_GROUND_CARGO_POS          = 68.3;
+    public static final double PICKUP_HATCH_PICKUP_POS          = 0.4;
+    public static final double PICKUP_GROUND_CARGO_POS          = 54;
     public static final double PICKUP_PERP_TO_GROUND_POS        = PICKUP_MIN_POS;
     public static final double PICKUP_PARALLEL_TO_GROUND_POS    = PICKUP_MAX_POS;
 
@@ -243,31 +251,33 @@ public class RobotInfo
     public static final double ELEVATOR_TOLERANCE               = 1.0; // 1 in
     public static final double ELEVATOR_CALIBRATE_POWER         = 0.2;
     public static final double ELEVATOR_MIN_POS                 = 6.75;
-    public static final double ELEVATOR_MAX_POS                 = 69.25;
+    public static final double ELEVATOR_MAX_POS                 = 71;
     public static final double ELEVATOR_PID_FLOOR               = ELEVATOR_MIN_POS - 2.0;
     public static final double ELEVATOR_PID_CEILING             = ELEVATOR_MAX_POS + 2.0;
-    public static final double ELEVATOR_GRAVITY_COMP            = 0.0;
+    public static final double ELEVATOR_GRAVITY_COMP            = 0.1;
     public static final double ELEVATOR_STALL_MIN_POWER         = 0.8;
     public static final double ELEVATOR_STALL_TIMEOUT           = 1.0;
     public static final double ELEVATOR_STALL_RESET_TIMEOUT     = 0.5;
 
     public static final double ELEVATOR_DRIVE_POS               = 20.0;
 
-    public static final double ELEVATOR_POS_CARGO_ROCKET_LOW    = 13.125; // I'm just spitballing here, man.
+    public static final double ELEVATOR_POS_CARGO_ROCKET_LOW    = 13.125;
     public static final double ELEVATOR_POS_CARGO_ROCKET_MED    = 42.25;
     public static final double ELEVATOR_POS_CARGO_ROCKET_HIGH   = ELEVATOR_MAX_POS;
     public static final double[] ELEVATOR_CARGO_ROCKET_POSITIONS = new double[] { ELEVATOR_POS_CARGO_ROCKET_LOW,
         ELEVATOR_POS_CARGO_ROCKET_MED, ELEVATOR_POS_CARGO_ROCKET_HIGH };
 
     public static final double ELEVATOR_POS_HATCH_ROCKET_LOW    = ELEVATOR_MIN_POS;
-    public static final double ELEVATOR_POS_HATCH_ROCKET_MED    = 32.5;
-    public static final double ELEVATOR_POS_HATCH_ROCKET_HIGH   = 61.875;
+    public static final double ELEVATOR_POS_HATCH_ROCKET_MED    = 35.5;
+    public static final double ELEVATOR_POS_HATCH_ROCKET_HIGH   = 64.875;
     public static final double[] ELEVATOR_HATCH_ROCKET_POSITIONS = new double[] { ELEVATOR_POS_HATCH_ROCKET_LOW,
         ELEVATOR_POS_HATCH_ROCKET_MED, ELEVATOR_POS_HATCH_ROCKET_HIGH };
 
     public static final double ELEVATOR_POS_HATCH_SHIP          = ELEVATOR_POS_HATCH_ROCKET_LOW;
 
     public static final double ELEVATOR_POS_HATCH_PICKUP        = ELEVATOR_POS_HATCH_ROCKET_LOW;
+
+    public static final double ROCKET_SIDE_ANGLE                = 61.23; // Angle in degrees between side wall and angled rocket side.
 
     public static final double HAB_1_DRIVE_OFF_DIST             = 55.0;
     public static final double DRIVE_TO_CARGO_SHIP_FRONT_DIST   = 100.0;

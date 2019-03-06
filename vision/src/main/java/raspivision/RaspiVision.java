@@ -59,9 +59,9 @@ public class RaspiVision
     private static final boolean SERVER = false; // true for debugging only
     private static final boolean MEASURE_FPS = true;
     private static final double FPS_AVG_WINDOW = 5; // 5 seconds
-    private static final DebugDisplayType DEBUG_DISPLAY = DebugDisplayType.BOUNDING_BOX;
+    private static final DebugDisplayType DEBUG_DISPLAY = DebugDisplayType.MASK;
 
-    private static final boolean APPROXIMATE_CAMERA_MATRIX = false;
+    private static final boolean APPROXIMATE_CAMERA_MATRIX = true;
     private static final boolean FLIP_Y_AXIS = true;
 
     // Default image resolution, in pixels
@@ -91,6 +91,7 @@ public class RaspiVision
     private Thread calcThread;
     private Thread cameraThread;
 
+    private NetworkTableInstance instance;
     private NetworkTableEntry visionData;
     private NetworkTableEntry cameraData;
 
@@ -124,7 +125,7 @@ public class RaspiVision
     {
         gson = new Gson();
 
-        NetworkTableInstance instance = NetworkTableInstance.getDefault();
+        instance = NetworkTableInstance.getDefault();
         if (SERVER)
         {
             System.out.print("Initializing server...");
@@ -134,7 +135,24 @@ public class RaspiVision
         else
         {
             System.out.print("Connecting to server...");
-            instance.startClientTeam(TEAM_NUMBER);
+            boolean done = false;
+            while (!done)
+            {
+                instance.startClient("10.4.92.2");
+                try
+                {
+                    Thread.sleep(1000);
+                }
+                catch (InterruptedException e)
+                {
+                    e.printStackTrace();
+                }
+                done = instance.isConnected();
+                if (!done)
+                {
+                    System.out.print("\nConnection failed! Retrying...");
+                }
+            }
             System.out.println("Done!");
         }
 
@@ -148,8 +166,10 @@ public class RaspiVision
         NetworkTableEntry hueHigh = table.getEntry("HueHigh");
         NetworkTableEntry satLow = table.getEntry("SatLow");
         NetworkTableEntry satHigh = table.getEntry("SatHigh");
-        NetworkTableEntry luminanceLow = table.getEntry("LuminanceLow");
-        NetworkTableEntry luminanceHigh = table.getEntry("LuminanceHigh");
+        NetworkTableEntry valueLow = table.getEntry("ValueLow");
+        NetworkTableEntry valueHigh = table.getEntry("ValueHigh");
+        NetworkTableEntry ratioLow = table.getEntry("RatioLow");
+        NetworkTableEntry ratioHigh = table.getEntry("RatioHigh");
 
         cameraData.setDoubleArray(new double[] { DEFAULT_WIDTH, DEFAULT_HEIGHT });
 
@@ -180,20 +200,26 @@ public class RaspiVision
 
         int flag = EntryListenerFlags.kNew | EntryListenerFlags.kUpdate;
 
-        hueHigh.setDouble(pipeline.hslThresholdHue[1]);
-        hueHigh.addListener(event -> pipeline.hslThresholdHue[1] = event.value.getDouble(), flag);
-        hueLow.setDouble(pipeline.hslThresholdHue[0]);
-        hueLow.addListener(event -> pipeline.hslThresholdHue[0] = event.value.getDouble(), flag);
+        hueHigh.setDouble(pipeline.hsvThresholdHue[1]);
+        hueHigh.addListener(event -> pipeline.hsvThresholdHue[1] = event.value.getDouble(), flag);
+        hueLow.setDouble(pipeline.hsvThresholdHue[0]);
+        hueLow.addListener(event -> pipeline.hsvThresholdHue[0] = event.value.getDouble(), flag);
 
-        satHigh.setDouble(pipeline.hslThresholdSaturation[1]);
-        satHigh.addListener(event -> pipeline.hslThresholdSaturation[1] = event.value.getDouble(), flag);
-        satLow.setDouble(pipeline.hslThresholdSaturation[0]);
-        satLow.addListener(event -> pipeline.hslThresholdSaturation[0] = event.value.getDouble(), flag);
+        satHigh.setDouble(pipeline.hsvThresholdSaturation[1]);
+        satHigh.addListener(event -> pipeline.hsvThresholdSaturation[1] = event.value.getDouble(), flag);
+        satLow.setDouble(pipeline.hsvThresholdSaturation[0]);
+        satLow.addListener(event -> pipeline.hsvThresholdSaturation[0] = event.value.getDouble(), flag);
 
-        luminanceHigh.setDouble(pipeline.hslThresholdLuminance[1]);
-        luminanceHigh.addListener(event -> pipeline.hslThresholdLuminance[1] = event.value.getDouble(), flag);
-        luminanceLow.setDouble(pipeline.hslThresholdLuminance[0]);
-        luminanceLow.addListener(event -> pipeline.hslThresholdLuminance[0] = event.value.getDouble(), flag);
+        valueHigh.setDouble(pipeline.hsvThresholdValue[1]);
+        valueHigh.addListener(event -> pipeline.hsvThresholdValue[1] = event.value.getDouble(), flag);
+        valueLow.setDouble(pipeline.hsvThresholdValue[0]);
+        valueLow.addListener(event -> pipeline.hsvThresholdValue[0] = event.value.getDouble(), flag);
+
+        ratioLow.setDouble(pipeline.rotatedRectRatioMin);
+        ratioLow.addListener(event -> pipeline.rotatedRectRatioMin = event.value.getDouble(), flag);
+
+        ratioHigh.setDouble(pipeline.rotatedRectRatioMax);
+        ratioHigh.addListener(event -> pipeline.rotatedRectRatioMax = event.value.getDouble(), flag);
 
         cameraConfig.addListener(event -> configCamera(camera, event.value.getString()),
             EntryListenerFlags.kNew | EntryListenerFlags.kUpdate | EntryListenerFlags.kImmediate);
@@ -299,6 +325,7 @@ public class RaspiVision
                     dataString = gson.toJson(pose);
                 }
                 visionData.setString(dataString);
+                instance.flush(); // Write all the network table data
                 // If fps counter is enabled, calculate fps
                 // TODO: Measure fps even if data is null, since null data isn't fresh, so the fps seems to drop.
                 if (MEASURE_FPS)
@@ -351,7 +378,7 @@ public class RaspiVision
         boolean release = false;
         if (DEBUG_DISPLAY == DebugDisplayType.MASK)
         {
-            image = pipeline.getHslThresholdOutput();
+            image = pipeline.getHsvThresholdOutput();
             color = new Scalar(255);
         }
         else
