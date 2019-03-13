@@ -134,6 +134,7 @@ public class Robot extends FrcRobotBase
     public FrcEmic2TextToSpeech tts = null;
     private double nextTimeToSpeakInSeconds = 0.0;  //0 means disabled, no need to speak;
     public FrcI2cLEDPanel messageBoard = null;
+    public LEDIndicator indicator;
     //
     // DriveBase subsystem.
     //
@@ -266,8 +267,9 @@ public class Robot extends FrcRobotBase
         // Create PID controllers for DriveBase PID drive.
         //
         encoderXPidCtrl = new TrcPidController("encoderXPidCtrl",
-            new PidCoefficients(RobotInfo.ENCODER_X_KP_SMALL, RobotInfo.ENCODER_X_KI_SMALL, RobotInfo.ENCODER_X_KD_SMALL,
-                RobotInfo.ENCODER_X_KF_SMALL), RobotInfo.ENCODER_X_TOLERANCE_SMALL, driveBase::getXPosition);
+            new PidCoefficients(RobotInfo.ENCODER_X_KP_SMALL, RobotInfo.ENCODER_X_KI_SMALL,
+                RobotInfo.ENCODER_X_KD_SMALL, RobotInfo.ENCODER_X_KF_SMALL), RobotInfo.ENCODER_X_TOLERANCE_SMALL,
+            driveBase::getXPosition);
         encoderYPidCtrl = new TrcPidController("encoderYPidCtrl",
             new PidCoefficients(RobotInfo.ENCODER_Y_KP, RobotInfo.ENCODER_Y_KI, RobotInfo.ENCODER_Y_KD,
                 RobotInfo.ENCODER_Y_KF), RobotInfo.ENCODER_Y_TOLERANCE, driveBase::getYPosition);
@@ -292,6 +294,7 @@ public class Robot extends FrcRobotBase
         //
         elevator = new Elevator();
         pickup = new Pickup(this);
+        indicator = new LEDIndicator();
 
         //
         // AutoAssist commands.
@@ -346,6 +349,8 @@ public class Robot extends FrcRobotBase
 
             dashboard.clearDisplay();
 
+            indicator.reset();
+
             if (runMode == RunMode.AUTO_MODE || runMode == RunMode.TEST_MODE)
             {
                 driveTime = HalDashboard.getNumber("Test/DriveTime", 5.0);
@@ -392,6 +397,8 @@ public class Robot extends FrcRobotBase
                 totalEnergy * 100.0 / RobotInfo.BATTERY_CAPACITY_WATT_HOUR);
             setTraceLogEnabled(false);
             closeTraceLog();
+
+            indicator.reset();
         }
     }   //robotStopMode
 
@@ -448,6 +455,22 @@ public class Robot extends FrcRobotBase
         {
             globalTracer.setTraceLogEnabled(enabled);
         }
+    }
+
+    public void enableSmallGains()
+    {
+        encoderXPidCtrl.setPidCoefficients(
+            new PidCoefficients(RobotInfo.ENCODER_X_KP_SMALL, RobotInfo.ENCODER_X_KI_SMALL,
+                RobotInfo.ENCODER_X_KD_SMALL, RobotInfo.ENCODER_X_KF_SMALL));
+        encoderXPidCtrl.setTargetTolerance(RobotInfo.ENCODER_X_TOLERANCE_SMALL);
+    }
+
+    public void enableBigGains()
+    {
+        encoderXPidCtrl.setPidCoefficients(
+            new PidCoefficients(RobotInfo.ENCODER_X_KP, RobotInfo.ENCODER_X_KI, RobotInfo.ENCODER_X_KD,
+                RobotInfo.ENCODER_X_KF));
+        encoderXPidCtrl.setTargetTolerance(RobotInfo.ENCODER_X_TOLERANCE);
     }
 
     /**
@@ -717,7 +740,7 @@ public class Robot extends FrcRobotBase
     public double getPressure()
     {
         return (pressureSensor.getVoltage() - 0.5) * 50.0;
-//        return pressureSensor.getScaledValue();
+        //        return pressureSensor.getScaledValue();
     }   //getPressure
 
     public Double getPixyTargetAngle()
