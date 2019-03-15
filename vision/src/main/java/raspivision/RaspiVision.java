@@ -59,6 +59,7 @@ public class RaspiVision
     private static final boolean SERVER = false; // true for debugging only
     private static final boolean MEASURE_FPS = true;
     private static final double FPS_AVG_WINDOW = 5; // 5 seconds
+    private static final boolean DRAW_CROSSHAIR = true;
     private static final DebugDisplayType DEBUG_DISPLAY = DebugDisplayType.MASK;
 
     private static final boolean APPROXIMATE_CAMERA_MATRIX = true;
@@ -71,6 +72,8 @@ public class RaspiVision
     // These are for the Raspberry Pi Camera v2
     private static final double CAMERA_FOV_X = 62.2;
     private static final double CAMERA_FOV_Y = 48.8;
+
+    private static final double CROSSHAIR_X_ANGLE = -7.125; // Angle in degrees from camera to end effector
 
     // These were calculated using the game manual specs on vision target
     // Origin is center of bounding box
@@ -98,6 +101,8 @@ public class RaspiVision
     private int numFrames = 0;
     private double startTime = 0;
     private CvSource dashboardDisplay;
+
+    private volatile double cameraPitch = 0.0;
 
     private int width, height; // in pixels
 
@@ -170,6 +175,10 @@ public class RaspiVision
         NetworkTableEntry valueHigh = table.getEntry("ValueHigh");
         NetworkTableEntry ratioLow = table.getEntry("RatioLow");
         NetworkTableEntry ratioHigh = table.getEntry("RatioHigh");
+        NetworkTableEntry cameraPitch = table.getEntry("CameraPitch");
+
+        cameraPitch.addListener(event -> this.cameraPitch = event.value.getDouble(),
+            EntryListenerFlags.kNew | EntryListenerFlags.kUpdate | EntryListenerFlags.kImmediate);
 
         cameraData.setDoubleArray(new double[] { DEFAULT_WIDTH, DEFAULT_HEIGHT });
 
@@ -256,6 +265,13 @@ public class RaspiVision
         CvSink sink = new CvSink("RaspiVision");
         sink.setSource(camera);
         Mat image = new Mat();
+        CvSource driverStream = null;
+
+        if (DRAW_CROSSHAIR)
+        {
+            driverStream = CameraServer.getInstance().putVideo("DriverStream", DEFAULT_WIDTH, DEFAULT_HEIGHT);
+        }
+
         while (!Thread.interrupted())
         {
             long response = sink.grabFrame(image);
@@ -266,6 +282,12 @@ public class RaspiVision
                 {
                     this.image = frame;
                     imageLock.notify();
+                }
+
+                if (driverStream != null)
+                {
+                    drawCrossHairs(image);
+                    driverStream.putFrame(image);
                 }
             }
             else
@@ -422,6 +444,13 @@ public class RaspiVision
         }
     }
 
+    private void drawCrossHairs(Mat image)
+    {
+        double xFov = cameraMat.get(1, 1)[0];
+        double x = Math.tan(Math.toRadians(CROSSHAIR_X_ANGLE)) * xFov;
+        Imgproc.line(image, new Point(x, 0), new Point(x, height), new Scalar(255, 255, 255), 2);
+    }
+
     private double getTime()
     {
         return (double) System.currentTimeMillis() / 1000;
@@ -470,10 +499,9 @@ public class RaspiVision
         Calib3d.solvePnP(worldPoints, imagePoints, cameraMat, dist, rotationVector, translationVector);
         // Get the distances in the x and z axes. (or in robot space, x and y)
         double x = translationVector.get(0, 0)[0];
-        double z = translationVector.get(2, 0)[0];
-        // Convert x,y to r,theta
-        double distance = Math.sqrt(x * x + z * z);
-        double heading = Math.toDegrees(Math.atan2(x, z));
+        double zRot = translationVector.get(2, 0)[0]; // This is uncorrected for pitch
+
+        double z = Math.cos(Math.toRadians(cameraPitch)) * zRot;
 
         // Convert the axis-angle rotation vector into a rotation matrix
         Calib3d.Rodrigues(rotationVector, rotationMatrix);
@@ -525,7 +553,7 @@ public class RaspiVision
             image.release();
         }
 
-        return new RelativePose(heading, distance, objectYaw);
+        return new RelativePose(x, z, objectYaw);
     }
 
     private double[] convertRotMatrixToEulerAngles(Mat rotationMatrix)
